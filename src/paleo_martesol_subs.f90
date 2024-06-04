@@ -8,7 +8,7 @@ contains
 
         implicit none
 
-        
+        ! Estrategia
 
     end subroutine
     
