@@ -7,13 +7,22 @@ module paleo_martesol_subs
     integer :: kmax
 
     real(dp), parameter :: pi = 4.d0*datan(1.d0)
-    real(dp), parameter :: radm = 3396.19d0
+    real(dp), parameter :: dd = 86400.d0
+    real(dp), parameter :: Radm = 3396.19d0
     real(dp), parameter :: uakm = 149597870.7d0
     real(dp), parameter :: epse = 23.43928d0*pi/180.d0
+    real(dp), parameter :: a0 = 1.52371034d0
+    real(dp), parameter :: GMm = 42828.375816d6
+    real(dp), parameter :: GMsol = 1.32712440041279419d20
+    real(dp), parameter :: mu = GMm + GMsol
+    real(dp), parameter :: norb = dsqrt(mu/(a0**3))
+    real(dp), parameter :: Porb = 2.d0*pi/norb
+    real(dp), parameter :: Prot = 1.02595676d0*dd
+
 
     real(dp) :: t0,dt,fdt,intervalo_integracion
 
-    real(dp), allocatable, dimension(:) :: colat,elong,z,xa,ya,za
+    real(dp), allocatable, dimension(:) :: colat,elong,z,xa,ya,za,wa
 
     integer, parameter :: mpol = 3
     integer :: nmax
@@ -24,7 +33,14 @@ module paleo_martesol_subs
 
         implicit none
 
-        real(dp) :: e,eps
+        real(dp) :: t,e,eps,pibar
+        real(dp) :: AM,AE,rr,xo,yo
+        real(dp) :: xecl,yecl,zecl
+        real(dp) :: xeq,yeq,zeq
+        real(dp) :: xsup,ysup,zsup
+        real(dp) :: xsol,ysol,zsol
+        real(dp) :: Ac,Alt
+        integer :: k
 
         character(len=100) :: fileinDEM,fileinDYN,pathout
 
@@ -36,7 +52,50 @@ module paleo_martesol_subs
 
         call leer_archivo_dinamicos(fileinDYN)
 
-        call buscar_e_y_eps(t0,e,eps)
+        call buscar_e_y_eps(t0,e,eps,pibar)
+
+        t = 0
+
+        do while (t.le.Porb)
+
+            AM = norb*t
+
+            call SOLKEP(e,AM,AE)
+
+            rr =  a0*(1.D0-e*dcos(AE))
+
+            xo = a0*(dcos(AE) - e)
+            yo = a0*dsqrt(1.d0-e*e)*dsin(AE)
+
+            xecl = xo*dcos(pibar) - yo*dsin(pibar)
+            yecl = xo*dsin(pibar) + yo*dcos(pibar)
+            zecl = 0.d0
+
+            xeq = xecl
+            yeq = yecl*dcos(eps) - zecl*dsin(eps)
+            zeq = yecl*dsin(eps) + zecl*dcos(eps)
+
+            do k=1,size(colat)
+
+                xsup = (Radm + z(k))*dsin(colat(k))*dcos(elong(k))
+                ysup = (Radm + z(k))*dsin(colat(k))*dsin(elong(k))
+                zsup = (Radm + z(k))*dcos(colat(k))
+
+                xsol = - (xsup + xeq)
+                ysol = - (ysup + yeq)
+                zsol = - (zsup + zeq)
+
+                Ac = datan2(xsol,ysol)
+                Ac = Ac*180.d0/pi
+                if (Ac.lt.0.d0) Ac = Ac + 360.d0
+               Alt = datan2(zsol,pythag(xsol,ysol))
+               Alt = Alt*180.d0/pi
+
+            end do
+
+            t = t + norb*Prot
+
+        end do
 
         ! call procesar_datos_escribir_salida(pathout)
 
@@ -135,7 +194,7 @@ module paleo_martesol_subs
 
         integer :: k,feof
 
-        real(dp) :: t,e,eps
+        real(dp) :: t,e,eps,pibar
 
         character(len=100),intent(in) :: filein
 
@@ -149,7 +208,7 @@ module paleo_martesol_subs
 
         do while(feof.eq.0)
 
-            read(11,*,iostat=feof) t,e,eps
+            read(11,*,iostat=feof) t,e,eps,pibar
 
             if (feof.gt.0) then
                 print *,'Revisar archivo de entrada'
@@ -167,28 +226,32 @@ module paleo_martesol_subs
         
         kmax = k - 1
 
+        nmax = kmax
+
         allocate(xa(kmax), source=0.d0)
         allocate(ya(kmax), source=0.d0)
         allocate(za(kmax), source=0.d0)
+        allocate(wa(kmax), source=0.d0)
 
         open(unit=11,file=trim(filein))
 
         do k=1,kmax
 
-            read(11,*,iostat=feof) t,e,eps
+            read(11,*,iostat=feof) t,e,eps,pibar
 
             xa(k) = t
             ya(k) = e
             za(k) = eps
+            wa(k) = pibar
 
         end do
         
     end subroutine leer_archivo_dinamicos
 
-    subroutine buscar_e_y_eps(t_ini,e,eps)
+    subroutine buscar_e_y_eps(t_ini,e,eps,pibar)
 
         real(dp), intent(in) :: t_ini
-        real(dp),intent(out) :: e,eps
+        real(dp),intent(out) :: e,eps,pibar
         real(dp) :: y,dy
         integer :: j,k
 
@@ -202,6 +265,10 @@ module paleo_martesol_subs
         call polint(xa(k),za(k),mpol,t_ini,y,dy)
 
         eps = y
+
+        call polint(xa(k),wa(k),mpol,t_ini,y,dy)
+
+        pibar = y
         
     end subroutine buscar_e_y_eps
 
@@ -298,5 +365,22 @@ module paleo_martesol_subs
         end do
         return
     end subroutine polint
+
+    FUNCTION PYTHAG(A,B)
+        REAL*8 A,B,PYTHAG
+        REAL*8 ABSA,ABSB
+        ABSA=ABS(A)
+        ABSB=ABS(B)
+        IF(ABSA.GT.ABSB)THEN
+            PYTHAG=ABSA*SQRT(1.D0+(ABSB/ABSA)**2)
+        ELSE
+            IF(ABSB.EQ.0.D0)THEN
+            PYTHAG=0.D0
+            ELSE
+            PYTHAG=ABSB*SQRT(1.D0+(ABSA/ABSB)**2)
+            ENDIF
+        ENDIF
+        RETURN
+    END
     
 end module paleo_martesol_subs
