@@ -33,15 +33,6 @@ module paleo_martesol_subs
 
         implicit none
 
-        real(dp) :: t,e,eps,pibar
-        real(dp) :: AM,AE,rr,xo,yo
-        real(dp) :: xecl,yecl,zecl
-        real(dp) :: xeq,yeq,zeq
-        real(dp) :: xsup,ysup,zsup
-        real(dp) :: xsol,ysol,zsol
-        real(dp) :: Ac,Alt
-        integer :: k
-
         character(len=100) :: fileinDEM,fileinDYN,pathout
 
         ! Estrategia
@@ -52,54 +43,102 @@ module paleo_martesol_subs
 
         call leer_archivo_dinamicos(fileinDYN)
 
+        call procesar_datos_escribir_salida(pathout)
+
+    end subroutine
+
+    subroutine procesar_datos_escribir_salida(pathout)
+
+        implicit none
+
+        real(dp) :: t,e,eps,pibar
+        real(dp) :: xeq,yeq,zeq
+        real(dp) :: Ac,Alt
+        integer :: k
+
+        character(len=100), intent(in) :: pathout
+        character(len=100) ::  fileout
+
         call buscar_e_y_eps(t0,e,eps,pibar)
 
         t = 0
 
         do while (t.le.Porb)
 
-            AM = norb*t
+            fileout = trim(pathout)//'.out'
+        
+            open(unit=12,file=trim(pathout))
 
-            call SOLKEP(e,AM,AE)
-
-            rr =  a0*(1.D0-e*dcos(AE))
-
-            xo = a0*(dcos(AE) - e)
-            yo = a0*dsqrt(1.d0-e*e)*dsin(AE)
-
-            xecl = xo*dcos(pibar) - yo*dsin(pibar)
-            yecl = xo*dsin(pibar) + yo*dcos(pibar)
-            zecl = 0.d0
-
-            xeq = xecl
-            yeq = yecl*dcos(eps) - zecl*dsin(eps)
-            zeq = yecl*dsin(eps) + zecl*dcos(eps)
+            call calcular_coords_eqs_sol(t,e,eps,pibar,xeq,yeq,zeq)
 
             do k=1,size(colat)
 
-                xsup = (Radm + z(k))*dsin(colat(k))*dcos(elong(k))
-                ysup = (Radm + z(k))*dsin(colat(k))*dsin(elong(k))
-                zsup = (Radm + z(k))*dcos(colat(k))
+                call calcular_Acimut_Alt_sol(k,xeq,yeq,zeq,Ac,Alt)
 
-                xsol = - (xsup + xeq)
-                ysol = - (ysup + yeq)
-                zsol = - (zsup + zeq)
-
-                Ac = datan2(xsol,ysol)
-                Ac = Ac*180.d0/pi
-                if (Ac.lt.0.d0) Ac = Ac + 360.d0
-               Alt = datan2(zsol,pythag(xsol,ysol))
-               Alt = Alt*180.d0/pi
+                write(12,*) 
 
             end do
 
             t = t + norb*Prot
 
         end do
+        
+    end subroutine procesar_datos_escribir_salida
 
-        ! call procesar_datos_escribir_salida(pathout)
+    subroutine calcular_coords_eqs_sol(t,e,eps,pibar,xeq,yeq,zeq)
+
+        real(dp), intent(in) :: t,e,eps,pibar
+
+        real(dp), intent(out) :: xeq,yeq,zeq
+
+        real(dp) :: AM,AE,rr,xo,yo
+        real(dp) :: xecl,yecl,zecl
+
+        AM = norb*t
+
+        call SOLKEP(e,AM,AE)
+
+        rr =  a0*(1.D0-e*dcos(AE))
+
+        xo = a0*(dcos(AE) - e)
+        yo = a0*dsqrt(1.d0-e*e)*dsin(AE)
+
+        xecl = xo*dcos(pibar) - yo*dsin(pibar)
+        yecl = xo*dsin(pibar) + yo*dcos(pibar)
+        zecl = 0.d0
+
+        xeq = xecl
+        yeq = yecl*dcos(eps) - zecl*dsin(eps)
+        zeq = yecl*dsin(eps) + zecl*dcos(eps)
 
     end subroutine
+
+    subroutine calcular_Acimut_Alt_sol(k,xeq,yeq,zeq,Ac,Alt)
+
+        integer, intent(in) :: k
+
+        real(dp), intent(in) :: xeq,yeq,zeq
+        real(dp), intent(out) :: Ac,Alt
+
+        real(dp) :: xsup,ysup,zsup
+        real(dp) :: xsol,ysol,zsol
+
+    
+        xsup = (Radm + z(k))*dsin(colat(k))*dcos(elong(k))
+        ysup = (Radm + z(k))*dsin(colat(k))*dsin(elong(k))
+        zsup = (Radm + z(k))*dcos(colat(k))
+
+        xsol = - (xsup + xeq)
+        ysol = - (ysup + yeq)
+        zsol = - (zsup + zeq)
+
+        Ac = datan2(xsol,ysol)
+        Ac = Ac*180.d0/pi
+        if (Ac.lt.0.d0) Ac = Ac + 360.d0
+        Alt = datan2(zsol,pythag(xsol,ysol))
+        Alt = Alt*180.d0/pi
+        
+    end subroutine calcular_Acimut_Alt_sol
 
     subroutine leer_archivo_entrada(fileinDEM,fileinDYN,pathout)
 
@@ -271,16 +310,6 @@ module paleo_martesol_subs
         pibar = y
         
     end subroutine buscar_e_y_eps
-
-    subroutine procesar_datos_escribir_salida(pathout)
-
-        implicit none
-
-        character(len=100), intent(in) :: pathout
-        
-        open(unit=12,file=trim(pathout))
-        
-    end subroutine procesar_datos_escribir_salida
 
 !=======================================================================
     SUBROUTINE hunt(xx,n,x,jlo)
