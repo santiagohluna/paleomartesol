@@ -22,7 +22,7 @@ module paleo_martesol_subs
 
     real(dp) :: t0,dt,fdt,intervalo_integracion
 
-    real(dp), allocatable, dimension(:) :: colat,elong,z,xa,ya,za,wa
+    real(dp), allocatable, dimension(:) :: lat,long,h,colat,elong,z,xa,ya,za,wa
 
     integer, parameter :: mpol = 3
     integer :: nmax
@@ -43,9 +43,38 @@ module paleo_martesol_subs
 
         call leer_archivo_dinamicos(fileinDYN)
 
-        call procesar_datos_escribir_salida(pathout)
+        call test()
+
+!        call procesar_datos_escribir_salida(pathout)
 
     end subroutine
+
+    subroutine test()
+        
+        character(len=10) :: dia,hora
+
+        integer :: i,j,k,n
+
+        do k=1,1000
+
+            n = 1000 + k
+
+            write(dia,'(I4)') int(n)
+
+            do i = 0,23
+
+                j = 100 + i
+
+                write(hora,'(I3)') int(j)
+
+                print *, 'nombre_de_archivo_'//trim(dia(2:4))//'-'//trim(hora(2:3))//'.out'
+            
+            end do
+
+        end do
+
+        
+    end subroutine test
 
     subroutine procesar_datos_escribir_salida(pathout)
 
@@ -53,7 +82,7 @@ module paleo_martesol_subs
 
         real(dp) :: t,e,eps,pibar
         real(dp) :: xeq,yeq,zeq
-        real(dp) :: Ac,Alt
+        real(dp) :: Ac,Alt,dSol
         integer :: k
 
         character(len=100), intent(in) :: pathout
@@ -73,9 +102,9 @@ module paleo_martesol_subs
 
             do k=1,size(colat)
 
-                call calcular_Acimut_Alt_sol(k,xeq,yeq,zeq,Ac,Alt)
+                call calcular_Acimut_Alt_sol(k,xeq,yeq,zeq,Ac,Alt,dSol)
 
-                write(12,*) 
+                write(12,*) long(k),lat(k),Ac,Alt,dSol
 
             end do
 
@@ -113,12 +142,12 @@ module paleo_martesol_subs
 
     end subroutine
 
-    subroutine calcular_Acimut_Alt_sol(k,xeq,yeq,zeq,Ac,Alt)
+    subroutine calcular_Acimut_Alt_sol(k,xeq,yeq,zeq,Ac,Alt,dSol)
 
         integer, intent(in) :: k
 
         real(dp), intent(in) :: xeq,yeq,zeq
-        real(dp), intent(out) :: Ac,Alt
+        real(dp), intent(out) :: Ac,Alt,dSol
 
         real(dp) :: xsup,ysup,zsup
         real(dp) :: xsol,ysol,zsol
@@ -131,6 +160,8 @@ module paleo_martesol_subs
         xsol = - (xsup + xeq)
         ysol = - (ysup + yeq)
         zsol = - (zsup + zeq)
+
+        dSol = PYTHAG(PYTHAG(xsol,ysol),zsol)
 
         Ac = datan2(xsol,ysol)
         Ac = Ac*180.d0/pi
@@ -169,7 +200,7 @@ module paleo_martesol_subs
 
         integer :: k,feof
 
-        real(dp) :: long,lat,h
+        real(dp) :: xdata,ydata,zdata
 
         character(len=100),intent(in) :: filein
 
@@ -183,7 +214,7 @@ module paleo_martesol_subs
 
         do while(feof.eq.0)
 
-            read(11,*,iostat=feof) long,lat,h
+            read(11,*,iostat=feof) xdata,ydata,zdata
 
             if (feof.gt.0) then
                 print *,'Revisar archivo de entrada'
@@ -205,23 +236,27 @@ module paleo_martesol_subs
         allocate(elong(kmax), source=0.d0)
         allocate(z(kmax), source=0.d0)
 
+        allocate(long(kmax), source=0.d0)
+        allocate(lat(kmax), source=0.d0)
+        allocate(h(kmax), source=0.d0)
+
         open(unit=11,file=trim(filein))
 
         do k=1,kmax
 
-            read(11,*,iostat=feof) long,lat,h
+            read(11,*,iostat=feof) long(k),lat(k),h(k)
 
-            colat(k) = 90.d0 - lat
+            colat(k) = 90.d0 - lat(k)
 
-            if (long.ge.0.d0) then
-                elong(k) = long
+            if (long(k).ge.0.d0) then
+                elong(k) = long(k)
             else
-                elong(k) = 360.d0 + long
+                elong(k) = 360.d0 + long(k)
             end if
 
             colat(k) = colat(k)*pi/180.d0
             elong(k) = elong(k)*pi/180.d0
-            z(k) = h*1.d-3
+            z(k) = h(k)*1.d-3
 
         end do
         
@@ -410,6 +445,86 @@ module paleo_martesol_subs
             ENDIF
         ENDIF
         RETURN
+    END
+
+! SOLUCION DE LA ECUACION DE KEPLER ELIPTICA:
+    SUBROUTINE SOLKEP(EX,M,E)
+!
+! SOLUCION ITERATIVA DE LA ECUACION DE KEPLER
+! ENTRA:EX   EXCENTRICIDAD            (<1)
+!       M    ANOMALIA MEDIA           (RADIANES)
+! SALE: E    ANOMALIA EXCENTRICA      (RADIANES)
+!
+    IMPLICIT REAL*8 (A-H,O-Z)
+    REAL*8 M,MK
+    integer :: NITER,NDIC
+
+    TOLE=1.D-10
+    DPI=8.D0*DATAN(1.D0)
+    M=DMOD(M,DPI)
+    E=M
+    NITER=0
+
+100     E0=E
+    
+    SE=DSIN(E0)
+    CE=DCOS(E0)
+    ES=EX*SE
+    EC=1.D0-EX*CE
+    MK=E0-ES
+    U=(MK-M)/EC
+    XPRI=E0-U
+    XSEG=E0-U/(1.D0-U*ES)
+    E=(XPRI+XSEG)/2.D0
+    DEX=DABS(E-E0)
+    
+    NITER=NITER+1
+    IF(NITER.GT.20)GOTO 200
+    IF(DEX.GT.TOLE)GOTO 100                
+    RETURN
+
+! SI EL NUMERO DE ITERACIONES ES > 20 PRUEBA CON BISECCION:
+    
+!   METODO DICOTOMICO:
+200      CONTINUE        
+    NDIC=0
+    E0=-DPI
+    DE0=DPI/10.D0
+
+400     DE=DE0/(10.D0**NDIC)
+    SE=DSIN(E0)
+    CE=DCOS(E0)
+    ES=EX*SE
+    EM0=E0-ES-M
+    NITER=0
+    
+300      E1=E0+DE
+    NITER=NITER+1
+    
+    IF(NITER.GT.100)THEN
+!      WRITE(50,*)'ERROR EN LA SOLUCION DE LA ECUACION DE KEPLER'
+    RETURN
+    ENDIF
+
+    SE=DSIN(E1)
+    CE=DCOS(E1)
+    ES=EX*SE
+    EM1=E1-ES-M
+    IF(EM1*EM0.GT.0.D0)THEN
+    E0=E1
+    EM0=EM1
+    GOTO 300
+    ELSE
+    NDIC=NDIC+1
+    IF(NDIC.EQ.3)THEN
+    E=E1
+    RETURN
+    ENDIF
+    GOTO 400
+    
+    ENDIF
+
+    RETURN
     END
     
 end module paleo_martesol_subs
