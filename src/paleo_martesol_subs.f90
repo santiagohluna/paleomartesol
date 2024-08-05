@@ -18,9 +18,11 @@ module paleo_martesol_subs
     real(dp), parameter :: norb = dsqrt(mu/(a0**3))
     real(dp), parameter :: Porb = 2.d0*pi/norb
     real(dp), parameter :: Prot = 1.02595676d0*dd
+    real(dp), parameter :: fdt = 1.d0/24.d0
+    real(dp), parameter :: dt = fdt*Prot
 
 
-    real(dp) :: t0,dt,fdt,intervalo_integracion
+    real(dp) :: t0,intervalo_integracion
 
     real(dp), allocatable, dimension(:) :: lat,long,h,colat,elong,z,xa,ya,za,wa
 
@@ -83,7 +85,7 @@ module paleo_martesol_subs
         real(dp) :: t,e,eps,pibar
         real(dp) :: xeq,yeq,zeq
         real(dp) :: Ac,Alt,dSol
-        integer :: k
+        integer :: k,d,hh
 
         character(len=100), intent(in) :: pathout
         character(len=100) ::  fileout
@@ -91,6 +93,8 @@ module paleo_martesol_subs
         call buscar_e_y_eps(t0,e,eps,pibar)
 
         t = 0
+        d = 1
+        hh = 0
 
         do while (t.le.Porb)
 
@@ -108,7 +112,10 @@ module paleo_martesol_subs
 
             end do
 
-            t = t + norb*Prot
+            t = t + dt
+            h = h + 1
+
+
 
         end do
         
