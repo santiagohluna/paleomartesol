@@ -11,7 +11,7 @@ module paleo_martesol_subs
     real(dp), parameter :: Radm = 3396.19d0
     real(dp), parameter :: uakm = 149597870.7d0
     real(dp), parameter :: epse = 23.43928d0*pi/180.d0
-    real(dp), parameter :: a0 = 1.52371034d0
+    real(dp), parameter :: a0 = 1.52371034d0*uakm*1000.d0
     real(dp), parameter :: GMm = 42828.375816d6
     real(dp), parameter :: GMsol = 1.32712440041279419d20
     real(dp), parameter :: mu = GMm + GMsol
@@ -45,38 +45,45 @@ module paleo_martesol_subs
 
         call leer_archivo_dinamicos(fileinDYN)
 
-        call test()
+!        call test()
 
-!        call procesar_datos_escribir_salida(pathout)
+        call procesar_datos_escribir_salida(pathout)
 
     end subroutine
 
-    subroutine test()
+    ! subroutine test()
         
-        character(len=10) :: dia,hora
+    !     character(len=10) :: dia,hora
 
-        integer :: i,j,k,n
+    !     integer :: d,hh
+    !     real(dp) :: t
 
-        do k=1,1000
+    !     t = 0
+    !     d = 1
+    !     hh = 0
 
-            n = 1000 + k
+    !     do while (t.le.Porb)
 
-            write(dia,'(I4)') int(n)
-
-            do i = 0,23
-
-                j = 100 + i
-
-                write(hora,'(I3)') int(j)
-
-                print *, 'nombre_de_archivo_'//trim(dia(2:4))//'-'//trim(hora(2:3))//'.out'
+    !         write(dia,'(I4)') 1000 + d
             
-            end do
+    !         write(hora,'(I3)') 100 + hh
 
-        end do
+    !         print *, 'nombre_de_archivo_'//trim(dia(2:4))//'-'//trim(hora(2:3))//'.out'
+
+    !         t = t + dt
+    !         hh = hh + 1
+
+    !         if(hh > 23) then 
+
+    !             d = d + 1 
+    !             hh = 0
+
+    !         end if
+
+    !     end do
 
         
-    end subroutine test
+    ! end subroutine test
 
     subroutine procesar_datos_escribir_salida(pathout)
 
@@ -84,11 +91,11 @@ module paleo_martesol_subs
 
         real(dp) :: t,e,eps,pibar
         real(dp) :: xeq,yeq,zeq
-        real(dp) :: Ac,Alt,dSol
-        integer :: k,d,hh
+
+        integer :: d,hh
 
         character(len=100), intent(in) :: pathout
-        character(len=100) ::  fileout
+        
 
         call buscar_e_y_eps(t0,e,eps,pibar)
 
@@ -98,28 +105,54 @@ module paleo_martesol_subs
 
         do while (t.le.Porb)
 
-            fileout = trim(pathout)//'.out'
-        
-            open(unit=12,file=trim(pathout))
-
             call calcular_coords_eqs_sol(t,e,eps,pibar,xeq,yeq,zeq)
 
-            do k=1,size(colat)
-
-                call calcular_Acimut_Alt_sol(k,xeq,yeq,zeq,Ac,Alt,dSol)
-
-                write(12,*) long(k),lat(k),Ac,Alt,dSol
-
-            end do
+            call escribir_archivo_salida(pathout,xeq,yeq,zeq,d,hh)
 
             t = t + dt
-            h = h + 1
+            hh = hh + 1
 
+            if(hh > 23) then 
 
+                d = d + 1 
+                hh = 0
+
+            end if
 
         end do
         
     end subroutine procesar_datos_escribir_salida
+
+    subroutine escribir_archivo_salida(pathout,xeq,yeq,zeq,d,hh)
+
+        implicit none
+
+        character(len=100), intent(in) :: pathout
+        real(dp), intent(in) :: xeq,yeq,zeq
+        integer, intent(in) :: d,hh
+
+        integer :: k
+        character(len=10) :: dia,hora
+        character(len=100) ::  fileout
+        real(dp) :: Ac,Alt,dSol
+
+        write(dia,'(I4)') 1000 + d
+            
+        write(hora,'(I3)') 100 + hh
+
+        fileout = trim(pathout)//trim(dia(2:4))//'-'//trim(hora(2:3))//'.out'
+    
+        open(unit=12,file=fileout)
+
+        do k=1,kmax
+
+            call calcular_Acimut_Alt_sol(k,xeq,yeq,zeq,Ac,Alt,dSol)
+
+            write(12,*) long(k),lat(k),Ac,Alt,dSol
+
+        end do
+        
+    end subroutine escribir_archivo_salida
 
     subroutine calcular_coords_eqs_sol(t,e,eps,pibar,xeq,yeq,zeq)
 
