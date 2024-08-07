@@ -22,7 +22,7 @@ module paleo_martesol_subs
     real(dp), parameter :: dt = fdt*Prot
 
 
-    real(dp) :: t0,intervalo_integracion
+    real(dp) :: t0,intervalo_integracion,tfin
 
     real(dp), allocatable, dimension(:) :: lat,long,h,colat,elong,z,xa,ya,za,wa
 
@@ -35,79 +35,54 @@ module paleo_martesol_subs
 
         implicit none
 
-        character(len=100) :: fileinDEM,fileinDYN,pathout
+        integer :: modelo_dinamico
+        character(len=100) :: fileinDEM,pathout
 
         ! Estrategia
 
-        call leer_archivo_entrada(fileinDEM,fileinDYN,pathout)
+        call leer_archivo_entrada(fileinDEM,modelo_dinamico,pathout)
 
         call leer_archivo_dem(fileinDEM)
 
-        call leer_archivo_dinamicos(fileinDYN)
+        call leer_archivo_dinamicos(modelo_dinamico)
 
-!        call test()
+        call test()
 
-        call procesar_datos_escribir_salida(pathout)
+        !call procesar_datos_escribir_salida(pathout)
 
     end subroutine
 
-    ! subroutine test()
+    subroutine test()
         
-    !     character(len=10) :: dia,hora
+        character(len=10) :: dia,hora,anio
 
-    !     integer :: d,hh
-    !     real(dp) :: t
-
-    !     t = 0
-    !     d = 1
-    !     hh = 0
-
-    !     do while (t.le.Porb)
-
-    !         write(dia,'(I4)') 1000 + d
-            
-    !         write(hora,'(I3)') 100 + hh
-
-    !         print *, 'nombre_de_archivo_'//trim(dia(2:4))//'-'//trim(hora(2:3))//'.out'
-
-    !         t = t + dt
-    !         hh = hh + 1
-
-    !         if(hh > 23) then 
-
-    !             d = d + 1 
-    !             hh = 0
-
-    !         end if
-
-    !     end do
-
-        
-    ! end subroutine test
-
-    subroutine procesar_datos_escribir_salida(pathout)
-
-        implicit none
-
-        real(dp) :: t,e,eps,pibar
-        real(dp) :: xeq,yeq,zeq
-
-        integer :: d,hh
-
-        character(len=100), intent(in) :: pathout
-        
-
-        call buscar_e_y_eps(t0,e,eps,pibar)
+        integer :: d,hh,yy
+        real(dp) :: t
 
         t = 0
         d = 1
         hh = 0
+        yy = 1
 
-        do while (t.le.Porb)
+        tfin = intervalo_integracion*Porb
 
-            call calcular_coords_eqs_sol(t,e,eps,pibar,xeq,yeq,zeq)
+        do while (t <= tfin)
 
-            call escribir_archivo_salida(pathout,xeq,yeq,zeq,d,hh)
+            write(dia,'(I4)') 1000 + d
+            
+            write(hora,'(I3)') 100 + hh
+
+            write(anio,'(I3)') 100 + yy
+
+            if (intervalo_integracion > 1) then
+
+                print *,trim(anio(2:3))//'-'//trim(dia(2:4))//'-'//trim(hora(2:3))//'.out'
+            
+            else
+    
+                print *,trim(dia(2:4))//'-'//trim(hora(2:3))//'.out'
+    
+            end if
 
             t = t + dt
             hh = hh + 1
@@ -119,28 +94,96 @@ module paleo_martesol_subs
 
             end if
 
+            if (t > yy*Porb) then
+                 
+                yy = yy + 1
+                d = 1
+                hh = 0
+
+            end if
+
+        end do
+
+        
+    end subroutine test
+
+    subroutine procesar_datos_escribir_salida(pathout)
+
+        implicit none
+
+        real(dp) :: t,e,eps,pibar
+        real(dp) :: xeq,yeq,zeq
+
+        integer :: d,hh,yy
+
+        character(len=100), intent(in) :: pathout
+        
+
+        call buscar_e_y_eps(t0,e,eps,pibar)
+
+        t = 0
+        d = 1
+        hh = 0
+        yy = 1
+
+        tfin = intervalo_integracion*Porb
+
+        do while (t.le.tfin)
+
+            call calcular_coords_eqs_sol(t,e,eps,pibar,xeq,yeq,zeq)
+
+            call escribir_archivo_salida(pathout,xeq,yeq,zeq,d,hh,yy)
+
+            t = t + dt
+            hh = hh + 1
+
+            if(hh > 23) then 
+
+                d = d + 1 
+                hh = 0
+
+            end if
+
+            if (t > yy*Porb) then
+                 
+                yy = yy + 1
+                d = 1
+                hh = 0
+
+            end if
+
         end do
         
     end subroutine procesar_datos_escribir_salida
 
-    subroutine escribir_archivo_salida(pathout,xeq,yeq,zeq,d,hh)
+    subroutine escribir_archivo_salida(pathout,xeq,yeq,zeq,d,hh,yy)
 
         implicit none
 
         character(len=100), intent(in) :: pathout
         real(dp), intent(in) :: xeq,yeq,zeq
-        integer, intent(in) :: d,hh
+        integer, intent(in) :: d,hh,yy
 
         integer :: k
-        character(len=10) :: dia,hora
-        character(len=100) ::  fileout
+        character(len=10) :: dia,hora,anio
+        character(len=100) :: fileout
         real(dp) :: Ac,Alt,dSol
 
         write(dia,'(I4)') 1000 + d
             
         write(hora,'(I3)') 100 + hh
+        
+        write(anio,'(I3)') 100 + yy
 
-        fileout = trim(pathout)//trim(dia(2:4))//'-'//trim(hora(2:3))//'.out'
+        if (intervalo_integracion > 1) then
+
+            fileout = trim(pathout)//trim(anio(2:3))//'-'//trim(dia(2:4))//'-'//trim(hora(2:3))//'.out'
+        
+        else
+
+            fileout = trim(pathout)//trim(dia(2:4))//'-'//trim(hora(2:3))//'.out'
+
+        end if
     
         open(unit=12,file=fileout)
 
@@ -211,12 +254,13 @@ module paleo_martesol_subs
         
     end subroutine calcular_Acimut_Alt_sol
 
-    subroutine leer_archivo_entrada(fileinDEM,fileinDYN,pathout)
+    subroutine leer_archivo_entrada(fileinDEM,modelo_dinamico,pathout)
 
         implicit none
 
+        integer, intent(out) :: modelo_dinamico
         character(len=100) :: algo
-        character(len=100),intent(out) :: fileinDEM,fileinDYN,pathout
+        character(len=100),intent(out) :: fileinDEM,pathout
         
         open(unit=10,file="../in/PALEOMARTESOL.IN",status="unknown")
 
@@ -224,13 +268,19 @@ module paleo_martesol_subs
         read(10,*) algo
         read(10,*) t0
         read(10,*) algo
-        read(10,*) fileinDYN
+        read(10,*) algo
+        read(10,*) modelo_dinamico
         read(10,*) algo
         read(10,*) intervalo_integracion
         read(10,*) algo
         read(10,*) fileinDEM
         read(10,*) algo
         read(10,*) pathout
+
+        if(intervalo_integracion>19) then 
+            print *,'El intervalo de integración debe ser menor o igual a 99 periodos orbitales de Marte.'
+            call exit()
+        end if
         
     end subroutine leer_archivo_entrada
 
@@ -302,15 +352,35 @@ module paleo_martesol_subs
         
     end subroutine leer_archivo_dem
 
-    subroutine leer_archivo_dinamicos(filein)
+    subroutine leer_archivo_dinamicos(id_dinamico)
         
         implicit none
+
+        integer, intent(in) :: id_dinamico
 
         integer :: k,feof
 
         real(dp) :: t,e,eps,pibar
 
-        character(len=100),intent(in) :: filein
+        character(len=100):: filein
+
+        if(t0 < 0) then 
+            if (id_dinamico == 3) then
+                filein = '../data/INSOLN.LA2003.MARS.ASC'
+            else if (id_dinamico == 4) then
+                filein = '../data/INSOLN.LA2004.MARS.ASC'
+            else
+                print *,'Error en el identificador del modelo dinámico.'
+            end if
+        else
+            if (id_dinamico == 3) then
+                filein = '../data/INSOLP.LA2003.MARS.ASC'
+            else if (id_dinamico == 4) then 
+                filein = '../data/INSOLP.LA2004.MARS.ASC'
+            else
+                print *,'Error en el identificador del modelo dinámico.'
+            end if
+        end if
 
         open(unit=11,file=trim(filein))
 
