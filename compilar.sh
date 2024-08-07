@@ -2,9 +2,13 @@
 
 echo "Compilando."
 
-mkdir out
+if test ! -d out; then 
+    mkdir out
+fi
 
-mkdir bin
+if test ! -d bin; then 
+    mkdir bin
+fi
 
 cd bin
 
