@@ -2,6 +2,8 @@
 
 echo "Compilando."
 
+mkdir out
+
 mkdir bin
 
 cd bin
