@@ -46,11 +46,43 @@ module paleo_martesol_subs
 
         call leer_archivo_dinamicos(modelo_dinamico)
 
-        call test()
-
-        !call procesar_datos_escribir_salida(pathout)
+        call procesar_o_probar(pathout)
 
     end subroutine
+
+    subroutine procesar_o_probar(pathout)
+
+        implicit none
+
+        character(len=1) :: entrada
+
+        character(len=100) :: pathout
+
+        logical :: ltest,lproc
+
+        print *,'Ingrese P para procesar o T para probar:'
+        
+        read *, entrada
+
+        lproc = (entrada.eq.'P').or.(entrada.eq.'p')
+        ltest = (entrada.eq.'T').or.(entrada.eq.'o')
+
+        if(lproc) then
+
+            call procesar_datos_escribir_salida(pathout)
+
+        else if(ltest) then
+
+            call test()
+
+        else
+
+            print *,'Debe ingresar la letra P/p o T/t'
+
+        end if
+
+        
+    end subroutine procesar_o_probar
 
     subroutine test()
         
@@ -186,12 +218,27 @@ module paleo_martesol_subs
         end if
     
         open(unit=12,file=fileout)
+        open(unit=13,file='../out/analema.out',status='unknown')
 
         do k=1,kmax
 
             call calcular_Acimut_Alt_sol(k,xeq,yeq,zeq,Ac,Alt,dSol)
 
             write(12,*) long(k),lat(k),Ac,Alt,dSol
+
+            if((k==1).and.(hh==12)) then 
+
+                if (intervalo_integracion > 1) then
+
+                    write(13,*) Ac,Alt,dd,yy
+                
+                else
+        
+                    write(13,*) Ac,Alt,dd
+        
+                end if
+
+            end if
 
         end do
         
@@ -358,7 +405,7 @@ module paleo_martesol_subs
 
         integer, intent(in) :: id_dinamico
 
-        integer :: k,feof
+        integer :: n,feof
 
         real(dp) :: t,e,eps,pibar
 
@@ -384,7 +431,7 @@ module paleo_martesol_subs
 
         open(unit=11,file=trim(filein))
 
-        k = 1
+        n = 1
         
         feof = 0
         
@@ -402,31 +449,29 @@ module paleo_martesol_subs
                 exit
             end if
         
-            k = k + 1
+            n = n + 1
         
         end do 
 
         close(11)
         
-        kmax = k - 1
+        nmax = n - 1 
 
-        nmax = kmax
-
-        allocate(xa(kmax), source=0.d0)
-        allocate(ya(kmax), source=0.d0)
-        allocate(za(kmax), source=0.d0)
-        allocate(wa(kmax), source=0.d0)
+        allocate(xa(nmax), source=0.d0)
+        allocate(ya(nmax), source=0.d0)
+        allocate(za(nmax), source=0.d0)
+        allocate(wa(nmax), source=0.d0)
 
         open(unit=11,file=trim(filein))
 
-        do k=1,kmax
+        do n=1,nmax
 
             read(11,*,iostat=feof) t,e,eps,pibar
 
-            xa(k) = t
-            ya(k) = e
-            za(k) = eps
-            wa(k) = pibar
+            xa(n) = t
+            ya(n) = e
+            za(n) = eps
+            wa(n) = pibar
 
         end do
         
