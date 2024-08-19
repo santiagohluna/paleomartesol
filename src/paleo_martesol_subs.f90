@@ -18,11 +18,12 @@ module paleo_martesol_subs
     real(dp), parameter :: norb = dsqrt(mu/(a0**3))
     real(dp), parameter :: Porb = 2.d0*pi/norb
     real(dp), parameter :: Prot = 1.02595676d0*dd
+    real(dp), parameter :: thp = 2.d0*pi/Prot
     real(dp), parameter :: fdt = 1.d0/24.d0
     real(dp), parameter :: dt = fdt*Prot
 
 
-    real(dp) :: t0,intervalo_integracion,tfin
+    real(dp) :: t0,intervalo_integracion,tfin,theta0
 
     real(dp), allocatable, dimension(:) :: lat,long,h,colat,elong,z,xa,ya,za,wa
 
@@ -144,7 +145,7 @@ module paleo_martesol_subs
         implicit none
 
         real(dp) :: t,e,eps,pibar
-        real(dp) :: xeq,yeq,zeq
+        real(dp) :: xeq,yeq,zeq,Ls
 
         integer :: d,hh,yy
 
@@ -162,9 +163,9 @@ module paleo_martesol_subs
 
         do while (t.le.tfin)
 
-            call calcular_coords_eqs_sol(t,e,eps,pibar,xeq,yeq,zeq)
+            call calcular_coords_eqs_sol(t,e,eps,pibar,xeq,yeq,zeq,Ls)
 
-            call escribir_archivo_salida(pathout,xeq,yeq,zeq,d,hh,yy)
+            call escribir_archivo_salida(pathout,xeq,yeq,zeq,Ls,d,hh,yy)
 
             t = t + dt
             hh = hh + 1
@@ -188,12 +189,12 @@ module paleo_martesol_subs
         
     end subroutine procesar_datos_escribir_salida
 
-    subroutine escribir_archivo_salida(pathout,xeq,yeq,zeq,d,hh,yy)
+    subroutine escribir_archivo_salida(pathout,xeq,yeq,zeq,Ls,d,hh,yy)
 
         implicit none
 
         character(len=100), intent(in) :: pathout
-        real(dp), intent(in) :: xeq,yeq,zeq
+        real(dp), intent(in) :: xeq,yeq,zeq,Ls
         integer, intent(in) :: d,hh,yy
 
         integer :: k
@@ -224,7 +225,7 @@ module paleo_martesol_subs
 
             call calcular_Acimut_Alt_sol(k,xeq,yeq,zeq,Ac,Alt,dSol)
 
-            write(12,*) long(k),lat(k),Ac,Alt,dSol
+            write(12,*) long(k),lat(k),Ac,Alt,dSol,Ls
 
             if((k==1).and.(hh==12)) then 
 
@@ -244,16 +245,18 @@ module paleo_martesol_subs
         
     end subroutine escribir_archivo_salida
 
-    subroutine calcular_coords_eqs_sol(t,e,eps,pibar,xeq,yeq,zeq)
+    subroutine calcular_coords_eqs_sol(t,e,eps,pibar,xeq,yeq,zeq,Ls)
 
         real(dp), intent(in) :: t,e,eps,pibar
 
-        real(dp), intent(out) :: xeq,yeq,zeq
+        real(dp), intent(out) :: xeq,yeq,zeq,Ls
 
-        real(dp) :: AM,AE,rr,xo,yo
+        real(dp) :: AM,AE,rr,xo,yo,theta
         real(dp) :: xecl,yecl,zecl
+        real(dp) :: xeq_cel,yeq_cel,zeq_cel
 
         AM = norb*t
+        theta = theta0 + thp*t
 
         call SOLKEP(e,AM,AE)
 
@@ -266,9 +269,15 @@ module paleo_martesol_subs
         yecl = xo*dsin(pibar) + yo*dcos(pibar)
         zecl = 0.d0
 
-        xeq = xecl
-        yeq = yecl*dcos(eps) - zecl*dsin(eps)
-        zeq = yecl*dsin(eps) + zecl*dcos(eps)
+        Ls = datan2(yecl,xecl) ! Caĺculo de la longitud solar
+
+        xeq_cel = xecl
+        yeq_cel = yecl*dcos(eps) - zecl*dsin(eps)
+        zeq_cel = yecl*dsin(eps) + zecl*dcos(eps)
+
+        xeq = xeq_cel*dcos(theta) + yeq_cel*dsin(theta)
+        yeq = -xeq_cel*dsin(theta) + yeq_cel*dcos(theta)
+        zeq = zeq_cel
 
     end subroutine
 
@@ -280,23 +289,36 @@ module paleo_martesol_subs
         real(dp), intent(out) :: Ac,Alt,dSol
 
         real(dp) :: xsup,ysup,zsup
-        real(dp) :: xsol,ysol,zsol
+        real(dp) :: xsol_eq,ysol_eq,zsol_eq
+        real(dp) :: xsol_h,ysol_h,zsol_h,xsol_h1,ysol_h1,zsol_h1,xsol_h2,ysol_h2,zsol_h2
 
     
-        xsup = (Radm + z(k))*dsin(colat(k))*dcos(elong(k))
-        ysup = (Radm + z(k))*dsin(colat(k))*dsin(elong(k))
-        zsup = (Radm + z(k))*dcos(colat(k))
+        xsup = (Radm + z(k))*dsin(colat(k))*dcos(elong(k))/uakm
+        ysup = (Radm + z(k))*dsin(colat(k))*dsin(elong(k))/uakm
+        zsup = (Radm + z(k))*dcos(colat(k))/uakm
 
-        xsol = - (xsup + xeq)
-        ysol = - (ysup + yeq)
-        zsol = - (zsup + zeq)
+        xsol_eq = - (xsup + xeq)
+        ysol_eq = - (ysup + yeq)
+        zsol_eq = - (zsup + zeq)
 
-        dSol = PYTHAG(PYTHAG(xsol,ysol),zsol)
+        xsol_h1 =  xsol_eq*dcos(elong(k)) + ysol_eq*dsin(elong(k))
+        ysol_h1 = -xsol_eq*dsin(elong(k)) + ysol_eq*dsin(elong(k))
+        zsol_h1 =  zsol_eq
 
-        Ac = datan2(xsol,ysol)
+        xsol_h2 = xsol_h1*dcos(colat(k)) - zsol_h1*dsin(colat(k))
+        ysol_h2 = ysol_h1
+        zsol_h2 = xsol_h1*dsin(colat(k)) + zsol_h1*dsin(colat(k))
+
+        xsol_h =  ysol_h2
+        ysol_h = -xsol_h2
+        zsol_h =  zsol_h2
+
+        dSol = PYTHAG(PYTHAG(xsol_h,ysol_h),zsol_h)
+
+        Ac = datan2(xsol_h,ysol_h)
         Ac = Ac*180.d0/pi
         if (Ac.lt.0.d0) Ac = Ac + 360.d0
-        Alt = datan2(zsol,pythag(xsol,ysol))
+        Alt = datan2(zsol_h,pythag(xsol_h,ysol_h))
         Alt = Alt*180.d0/pi
         
     end subroutine calcular_Acimut_Alt_sol
@@ -314,6 +336,8 @@ module paleo_martesol_subs
         read(10,*) algo
         read(10,*) algo
         read(10,*) t0
+        read(10,*) algo
+        read(10,*) theta0
         read(10,*) algo
         read(10,*) algo
         read(10,*) modelo_dinamico
