@@ -253,7 +253,7 @@ module paleo_martesol_subs
 
         real(dp), intent(out) :: xeq,yeq,zeq,Ls
 
-        real(dp) :: AM,AE,rr,xo,yo,theta
+        real(dp) :: AM,AE,xo,yo,theta
         real(dp) :: xecl,yecl,zecl
         real(dp) :: xeq_cel,yeq_cel,zeq_cel
 
@@ -261,8 +261,6 @@ module paleo_martesol_subs
         theta = theta0 + thp*t
 
         call SOLKEP(e,AM,AE)
-
-        rr =  a0_ua*(1.D0-e*dcos(AE))
 
         xo = a0_ua*(dcos(AE) - e)
         yo = a0_ua*dsqrt(1.d0-e*e)*dsin(AE)
@@ -303,6 +301,8 @@ module paleo_martesol_subs
         ysol_eq = - (ysup + yeq)
         zsol_eq = - (zsup + zeq)
 
+        dSol = PYTHAG(PYTHAG(xsol_eq,ysol_eq),zsol_eq)
+
         xsol_h1 =  xsol_eq*dcos(elong(k)) + ysol_eq*dsin(elong(k))
         ysol_h1 = -xsol_eq*dsin(elong(k)) + ysol_eq*dsin(elong(k))
         zsol_h1 =  zsol_eq
@@ -314,8 +314,6 @@ module paleo_martesol_subs
         xsol_h =  ysol_h2
         ysol_h = -xsol_h2
         zsol_h =  zsol_h2
-
-        dSol = PYTHAG(PYTHAG(xsol_h,ysol_h),zsol_h)
 
         Ac = datan2(xsol_h,ysol_h)
         Ac = Ac*180.d0/pi
