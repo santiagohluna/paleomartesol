@@ -11,7 +11,9 @@ module paleo_martesol_subs
     real(dp), parameter :: Radm = 3396.19d0
     real(dp), parameter :: uakm = 149597870.7d0
     real(dp), parameter :: epse = 23.43928d0*pi/180.d0
-    real(dp), parameter :: a0 = 1.52371034d0
+    real(dp), parameter :: a0_ua = 1.52371034d0
+    real(dp), parameter :: a0_km = a0_ua*uakm
+    real(dp), parameter :: a0 = a0_km*1.d3
     real(dp), parameter :: GMm = 42828.375816d6
     real(dp), parameter :: GMsol = 1.32712440041279419d20
     real(dp), parameter :: mu = GMm + GMsol
@@ -260,10 +262,10 @@ module paleo_martesol_subs
 
         call SOLKEP(e,AM,AE)
 
-        rr =  a0*(1.D0-e*dcos(AE))
+        rr =  a0_ua*(1.D0-e*dcos(AE))
 
-        xo = a0*(dcos(AE) - e)
-        yo = a0*dsqrt(1.d0-e*e)*dsin(AE)
+        xo = a0_ua*(dcos(AE) - e)
+        yo = a0_ua*dsqrt(1.d0-e*e)*dsin(AE)
 
         xecl = xo*dcos(pibar) - yo*dsin(pibar)
         yecl = xo*dsin(pibar) + yo*dcos(pibar)
