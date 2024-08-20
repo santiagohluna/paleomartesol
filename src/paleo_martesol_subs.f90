@@ -11,7 +11,7 @@ module paleo_martesol_subs
     real(dp), parameter :: Radm = 3396.19d0
     real(dp), parameter :: uakm = 149597870.7d0
     real(dp), parameter :: epse = 23.43928d0*pi/180.d0
-    real(dp), parameter :: a0 = 1.52371034d0*uakm*1000.d0
+    real(dp), parameter :: a0 = 1.52371034d0
     real(dp), parameter :: GMm = 42828.375816d6
     real(dp), parameter :: GMsol = 1.32712440041279419d20
     real(dp), parameter :: mu = GMm + GMsol
@@ -269,7 +269,7 @@ module paleo_martesol_subs
         yecl = xo*dsin(pibar) + yo*dcos(pibar)
         zecl = 0.d0
 
-        Ls = datan2(yecl,xecl) ! Caĺculo de la longitud solar
+        Ls = datan2(yecl,xecl) ! Cálculo de la longitud solar
 
         xeq_cel = xecl
         yeq_cel = yecl*dcos(eps) - zecl*dsin(eps)
