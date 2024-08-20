@@ -269,7 +269,7 @@ module paleo_martesol_subs
         yecl = xo*dsin(pibar) + yo*dcos(pibar)
         zecl = 0.d0
 
-        Ls = datan2(yecl,xecl)*180.d0/pi ! Cálculo de la longitud solar
+        Ls = atg(yecl,xecl)*180.d0/pi ! Cálculo de la longitud solar
 
         xeq_cel = xecl
         yeq_cel = yecl*dcos(eps) - zecl*dsin(eps)
@@ -315,10 +315,9 @@ module paleo_martesol_subs
         ysol_h = -xsol_h2
         zsol_h =  zsol_h2
 
-        Ac = datan2(xsol_h,ysol_h)
+        Ac = atg(ysol_h,xsol_h)
         Ac = Ac*180.d0/pi
-        if (Ac.lt.0.d0) Ac = Ac + 360.d0
-        Alt = datan2(zsol_h,pythag(xsol_h,ysol_h))
+        Alt = atg(zsol_h,pythag(xsol_h,ysol_h))
         Alt = Alt*180.d0/pi
         
     end subroutine calcular_Acimut_Alt_sol
@@ -525,6 +524,18 @@ module paleo_martesol_subs
         
     end subroutine buscar_e_y_eps
 
+    real(dp) function atg(y,x) result(retval)
+
+    use,intrinsic :: iso_fortran_env, only : dp=>real64
+
+    real(dp), intent(in) :: x,y
+
+    retval = atan(y,x)
+
+    if (y < 0.0d0) retval = retval + 2.d0*pi
+    
+end function atg
+
 !=======================================================================
     SUBROUTINE hunt(xx,n,x,jlo)
         INTEGER :: jlo,n
@@ -639,7 +650,7 @@ module paleo_martesol_subs
     integer :: NITER,NDIC
 
     TOLE=1.D-10
-    DPI=8.D0*DATAN(1.D0)
+    DPI=2.d0*pi
     M=DMOD(M,DPI)
     E=M
     NITER=0
