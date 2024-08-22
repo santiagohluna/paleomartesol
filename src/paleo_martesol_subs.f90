@@ -316,7 +316,7 @@ module paleo_martesol_subs
         zsol_h =  zsol_h2
 
         Ac = atg(ysol_h,xsol_h)
-        Ac = Ac*180.d0/pi
+        Ac = Ac*180.d0/pi - 360.d0
         Alt = atg(zsol_h,pythag(xsol_h,ysol_h))
         Alt = Alt*180.d0/pi
         
