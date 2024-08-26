@@ -318,7 +318,7 @@ module paleo_martesol_subs
         zsol_h =  zsol_h2
 
         Ac = 360.d0 - atg(ysol_h,xsol_h)*180.d0/pi
-        Alt = atg(zsol_h,pythag(xsol_h,ysol_h))
+        Alt = datan2(zsol_h,pythag(xsol_h,ysol_h))
         Alt = Alt*180.d0/pi
         
     end subroutine calcular_Acimut_Alt_sol
