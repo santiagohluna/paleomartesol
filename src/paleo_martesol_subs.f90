@@ -11,10 +11,10 @@ module paleo_martesol_subs
     real(dp), parameter :: Radm = 3396.19d0
     real(dp), parameter :: uakm = 149597870.7d0
     real(dp), parameter :: epse = 23.43928d0*pi/180.d0
-    real(dp), parameter :: a0_ua = 1.52371034d0
-    real(dp), parameter :: a0_km = a0_ua*uakm
-    real(dp), parameter :: a0 = a0_km*1.d3
-    real(dp), parameter :: GMm = 42828.375816d6
+    real(dp), parameter :: a0ua = 1.52371034d0
+    real(dp), parameter :: a0km = a0ua*uakm
+    real(dp), parameter :: a0 = a0km*1.d3
+    real(dp), parameter :: GMm = 42828.375816d9
     real(dp), parameter :: GMsol = 1.32712440041279419d20
     real(dp), parameter :: mu = GMm + GMsol
     real(dp), parameter :: norb = dsqrt(mu/(a0**3))
@@ -233,11 +233,11 @@ module paleo_martesol_subs
 
                 if (intervalo_integracion > 1) then
 
-                    write(13,*) Ac,Alt,dd,yy
+                    write(13,*) Ac,Alt,d,yy
                 
                 else
         
-                    write(13,*) Ac,Alt,dd
+                    write(13,*) Ac,Alt,d
         
                 end if
 
@@ -257,19 +257,21 @@ module paleo_martesol_subs
         real(dp) :: xecl,yecl,zecl
         real(dp) :: xeq_cel,yeq_cel,zeq_cel
 
-        AM = norb*t
+        AM = PRIVUE(norb*t)
         theta = theta0 + thp*t
 
         call SOLKEP(e,AM,AE)
 
-        xo = a0_ua*(dcos(AE) - e)
-        yo = a0_ua*dsqrt(1.d0-e*e)*dsin(AE)
+        xo = a0ua*(dcos(AE) - e)
+        yo = a0ua*dsqrt(1.d0-e*e)*dsin(AE)
 
         xecl = xo*dcos(pibar) - yo*dsin(pibar)
         yecl = xo*dsin(pibar) + yo*dcos(pibar)
         zecl = 0.d0
 
         Ls = atg(yecl,xecl)*180.d0/pi ! Cálculo de la longitud solar
+
+        print *,'Ls = ',Ls
 
         xeq_cel = xecl
         yeq_cel = yecl*dcos(eps) - zecl*dsin(eps)
@@ -304,19 +306,18 @@ module paleo_martesol_subs
         dSol = PYTHAG(PYTHAG(xsol_eq,ysol_eq),zsol_eq)
 
         xsol_h1 =  xsol_eq*dcos(elong(k)) + ysol_eq*dsin(elong(k))
-        ysol_h1 = -xsol_eq*dsin(elong(k)) + ysol_eq*dsin(elong(k))
+        ysol_h1 = -xsol_eq*dsin(elong(k)) + ysol_eq*dcos(elong(k))
         zsol_h1 =  zsol_eq
 
         xsol_h2 = xsol_h1*dcos(colat(k)) - zsol_h1*dsin(colat(k))
         ysol_h2 = ysol_h1
-        zsol_h2 = xsol_h1*dsin(colat(k)) + zsol_h1*dsin(colat(k))
+        zsol_h2 = xsol_h1*dsin(colat(k)) + zsol_h1*dcos(colat(k))
 
-        xsol_h =  ysol_h2
-        ysol_h = -xsol_h2
+        xsol_h = -xsol_h2
+        ysol_h = -ysol_h2
         zsol_h =  zsol_h2
 
-        Ac = atg(ysol_h,xsol_h)
-        Ac = Ac*180.d0/pi - 360.d0
+        Ac = 360.d0 - atg(ysol_h,xsol_h)*180.d0/pi
         Alt = atg(zsol_h,pythag(xsol_h,ysol_h))
         Alt = Alt*180.d0/pi
         
@@ -526,15 +527,13 @@ module paleo_martesol_subs
 
     real(dp) function atg(y,x) result(retval)
 
-    use,intrinsic :: iso_fortran_env, only : dp=>real64
+        real(dp), intent(in) :: x,y
 
-    real(dp), intent(in) :: x,y
+        retval = atan(y,x)
 
-    retval = atan(y,x)
-
-    if (y < 0.0d0) retval = retval + 2.d0*pi
-    
-end function atg
+        if (y < 0.0d0) retval = retval + 2.d0*pi
+        
+    end function atg
 
 !=======================================================================
     SUBROUTINE hunt(xx,n,x,jlo)
@@ -635,6 +634,23 @@ end function atg
             ENDIF
         ENDIF
         RETURN
+    END
+
+    FUNCTION PRIVUE(X)
+
+      IMPLICIT NONE
+
+      REAL*8 X,PRIVUE
+
+      IF (X < 0.D0) X = X + 2.d0*pi
+      IF (X > 2.d0*pi) THEN
+       PRIVUE = X - DBLE(INT(X/2.d0*pi))*2.d0*pi
+      ELSE
+       PRIVUE = X
+      END IF
+
+      RETURN
+
     END
 
 ! SOLUCION DE LA ECUACION DE KEPLER ELIPTICA:
