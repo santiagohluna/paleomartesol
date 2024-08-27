@@ -278,7 +278,7 @@ module paleo_martesol_subs
         yecl = xo*dsin(pibar) + yo*dcos(pibar)
         zecl = 0.d0
 
-        Ls = PRIVUE(atg(yecl,xecl))*180.d0/pi + 180.d0 ! Cálculo de la longitud solar
+        Ls = PRIVUE(atg(yecl,xecl) + pi)*180.d0/pi ! Cálculo de la longitud solar
 
         xeq_cel = xecl
         yeq_cel = yecl*dcos(eps) - zecl*dsin(eps)
