@@ -24,6 +24,7 @@ module paleo_martesol_subs
     real(dp), parameter :: fdt = 1.d0/24.d0
     real(dp), parameter :: dt = fdt*Prot
 
+    character, parameter :: cr = achar(13)
 
     real(dp) :: t0,intervalo_integracion,tfin,theta0
 
@@ -169,6 +170,9 @@ module paleo_martesol_subs
 
             call escribir_archivo_salida(pathout,xeq,yeq,zeq,Ls,d,hh,yy)
 
+12          format(a,'Progreso =',1x,f5.1,1x,a1)
+            write(*,12,advance='no') cr,t*100.d0/tfin,'%'
+
             t = t + dt
             hh = hh + 1
 
@@ -188,6 +192,11 @@ module paleo_martesol_subs
             end if
 
         end do
+
+        print *,' '
+        print *,' '
+        print *,'¡Listo!'
+        print *,' '
         
     end subroutine procesar_datos_escribir_salida
 
@@ -227,17 +236,17 @@ module paleo_martesol_subs
 
             call calcular_Acimut_Alt_sol(k,xeq,yeq,zeq,Ac,Alt,dSol)
 
-            write(12,*) long(k),lat(k),Ac,Alt,dSol,Ls
+            write(12,*) long(k),lat(k),Ac,Alt,dSol
 
             if((k==1).and.(hh==12)) then 
 
                 if (intervalo_integracion > 1) then
 
-                    write(13,*) Ac,Alt,d,yy
+                    write(13,*) Ac,Alt,Ls,d,yy
                 
                 else
         
-                    write(13,*) Ac,Alt,d
+                    write(13,*) Ac,Alt,Ls,d
         
                 end if
 
@@ -269,9 +278,7 @@ module paleo_martesol_subs
         yecl = xo*dsin(pibar) + yo*dcos(pibar)
         zecl = 0.d0
 
-        Ls = atg(yecl,xecl)*180.d0/pi ! Cálculo de la longitud solar
-
-        print *,'Ls = ',Ls
+        Ls = PRIVUE(atg(yecl,xecl))*180.d0/pi + 180.d0 ! Cálculo de la longitud solar
 
         xeq_cel = xecl
         yeq_cel = yecl*dcos(eps) - zecl*dsin(eps)
