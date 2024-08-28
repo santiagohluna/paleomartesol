@@ -69,7 +69,7 @@ module paleo_martesol_subs
         read *, entrada
 
         lproc = (entrada.eq.'P').or.(entrada.eq.'p')
-        ltest = (entrada.eq.'T').or.(entrada.eq.'o')
+        ltest = (entrada.eq.'T').or.(entrada.eq.'t')
 
         if(lproc) then
 
@@ -92,13 +92,18 @@ module paleo_martesol_subs
         
         character(len=10) :: dia,hora,anio
 
-        integer :: d,hh,yy
+        integer :: d,hh,yy,counter,max
         real(dp) :: t
 
         t = 0
         d = 1
         hh = 0
         yy = 1
+
+        counter = 0
+        max = int(intervalo_integracion*24*Porb/Prot)
+
+        print *,'max = ',max
 
         tfin = intervalo_integracion*Porb
 
@@ -138,7 +143,13 @@ module paleo_martesol_subs
 
             end if
 
+            call progress_bar(counter,max)
+
+            counter = counter + 1
+
         end do
+
+        print *,'counter = ',counter
 
         
     end subroutine test
@@ -147,13 +158,17 @@ module paleo_martesol_subs
 
         implicit none
 
+        integer :: counter,max
+
         real(dp) :: t,e,eps,pibar
         real(dp) :: xeq,yeq,zeq,Ls
 
         integer :: d,hh,yy
 
         character(len=100), intent(in) :: pathout
-        
+
+        counter = 0
+        max = int(intervalo_integracion*24*Porb/Prot)        
 
         call buscar_e_y_eps(t0,e,eps,pibar)
 
@@ -170,8 +185,9 @@ module paleo_martesol_subs
 
             call escribir_archivo_salida(pathout,xeq,yeq,zeq,Ls,d,hh,yy)
 
-12          format(a,'Progreso =',1x,f5.1,1x,a1)
-            write(*,12,advance='no') cr,t*100.d0/tfin,'%'
+            call progress_bar(counter,max)
+
+            counter = counter + 1
 
             t = t + dt
             hh = hh + 1
@@ -278,7 +294,7 @@ module paleo_martesol_subs
         yecl = xo*dsin(pibar) + yo*dcos(pibar)
         zecl = 0.d0
 
-        Ls = PRIVUE(atg(yecl,xecl) + pi)*180.d0/pi ! Cálculo de la longitud solar
+        Ls = atg(-yecl,-xecl)*180.d0/pi ! Cálculo de la longitud solar
 
         xeq_cel = xecl
         yeq_cel = yecl*dcos(eps) - zecl*dsin(eps)
@@ -739,5 +755,47 @@ module paleo_martesol_subs
 
     RETURN
     END
+
+    subroutine progress_bar(iteration, maximum)
+    !
+    ! Prints progress bar.
+    !
+    ! Args: 
+    !     iteration - iteration number
+    !     maximum - total iterations
+    !
+        implicit none
+        integer :: iteration, maximum
+        integer :: counter
+        integer :: step, done
+
+        step = nint(iteration * 100 / (1.0 * maximum))
+        done = floor(step / 10.0)  ! mark every 10%
+
+        do counter = 1, 36                    ! clear whole line - 36 chars
+            write(6,'(a)',advance='no') '\b'  ! (\b - backslash)
+        end do
+
+        write(6,'(a)',advance='no') ' -> In progress... ['
+        if (done .LE. 0) then
+            do counter = 1, 10
+                write(6,'(a)',advance='no') '='
+            end do
+        else if ((done .GT. 0) .and. (done .LT. 10)) then
+            do counter = 1, done
+                write(6,'(a)',advance='no') '#'
+            end do
+            do counter = done+1, 10
+                write(6,'(a)',advance='no') '='
+            end do 
+        else
+            do counter = 1, 10
+                write(6,'(a)',advance='no') '#'
+            end do
+        end if
+        write(6,'(a)',advance='no') '] '
+        write(6,'(I3.1)',advance='no') step
+        write(6,'(a)',advance='no') '%'
+    end
     
 end module paleo_martesol_subs
