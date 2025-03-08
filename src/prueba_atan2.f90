@@ -20,7 +20,7 @@ program prueba_atan2
 
         ang_calc = atg(y,x)*180.d0/pi
 
-        print '(2(1x,F6.2))',ang,ang_calc
+        print '(3(1x,F7.2))',ang,datan2(y,x)*180.d0/pi,ang_calc
 
         ang = ang + 10.d0
 
